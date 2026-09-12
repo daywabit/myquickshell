@@ -9,12 +9,12 @@ PanelWindow {
     id: powerMenuRoot
 
     property bool isOpen: false
+    signal lockRequested()
 
     WlrLayershell.namespace: "quickshell-powermenu"
     WlrLayershell.layer: WlrLayershell.Overlay
     WlrLayershell.keyboardFocus: isOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    // Ignore top panel exclusion boundaries to eliminate top gap
     exclusionMode: ExclusionMode.Ignore
 
     anchors {
@@ -54,7 +54,6 @@ PanelWindow {
         onActivated: powerMenuRoot.close()
     }
 
-    // Fullscreen Dark Backdrop
     Rectangle {
         anchors.fill: parent
         color: "#d9000000"
@@ -71,7 +70,6 @@ PanelWindow {
         }
     }
 
-    // Centered Power Card
     Rectangle {
         id: menuContent
         anchors.centerIn: parent
@@ -99,14 +97,14 @@ PanelWindow {
             NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
         }
 
-        // Direct Keybind Listeners
         Keys.onPressed: (event) => {
             if (event.key === Qt.Key_S || event.key === Qt.Key_1) {
                 execCmd(["systemctl", "poweroff"])
             } else if (event.key === Qt.Key_R || event.key === Qt.Key_2) {
                 execCmd(["systemctl", "reboot"])
             } else if (event.key === Qt.Key_L || event.key === Qt.Key_3) {
-                execCmd(["loginctl", "lock-session"])
+                powerMenuRoot.close()
+                powerMenuRoot.lockRequested()
             } else if (event.key === Qt.Key_Z || event.key === Qt.Key_4) {
                 execCmd(["systemctl", "suspend"])
             } else if (event.key === Qt.Key_E || event.key === Qt.Key_5) {
@@ -145,7 +143,10 @@ PanelWindow {
             PowerTile {
                 icon: "󰌾"
                 label: "Lock"
-                onTriggered: menuContent.execCmd(["loginctl", "lock-session"])
+                onTriggered: {
+                    powerMenuRoot.close()
+                    powerMenuRoot.lockRequested()
+                }
             }
 
             PowerTile {

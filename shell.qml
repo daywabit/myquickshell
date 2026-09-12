@@ -9,12 +9,63 @@ import Quickshell.Services.Mpris
 Scope {
     id: scopeRoot
 
+    // --- 1. Wallpaper Engine (Runs continuously in background) ---
+    WallpaperEngine {}
+
+    // --- 2. Nixpkgs Search Drawer (Bottom Center) ---
+    NixPkgDrawer {
+        id: nixPkgDrawer
+    }
+
+    // --- 3. Standalone Fullscreen Wallpaper Picker Window ---
+    PanelWindow {
+        id: wallpaperPickerWindow
+
+        WlrLayershell.namespace: "quickshell-wallpaper-picker"
+        WlrLayershell.layer: WlrLayershell.Overlay
+
+        // Cover the entire screen
+        anchors {
+            top: true
+            bottom: true
+            left: true
+            right: true
+        }
+
+        color: "transparent"
+        visible: false
+
+        // Take keyboard focus (arrow keys, enter) only when launched
+        WlrLayershell.keyboardFocus: visible
+            ? WlrKeyboardFocus.Exclusive
+            : WlrKeyboardFocus.None
+
+        // Embed the picker full-screen
+        WallpaperPicker {
+            anchors.fill: parent
+            focus: wallpaperPickerWindow.visible
+        }
+
+        // Close on Escape key
+        Shortcut {
+            sequence: "Escape"
+            enabled: wallpaperPickerWindow.visible
+            onActivated: wallpaperPickerWindow.visible = false
+        }
+    }
+
     // --- Left Edge Side Notch ---
     SideNotch {}
+
+    // --- Lock Screen Window ---
+    LockScreen {
+        id: lockScreen
+    }
 
     // --- Power Menu Window ---
     PowerMenu {
         id: powerMenu
+        onLockRequested: lockScreen.lock()
     }
 
     // --- OSD Volume / Brightness Pill ---
@@ -38,7 +89,13 @@ Scope {
                 let lines = this.text.trim().split("\n")
                 let msg = lines.length > 0 ? lines[lines.length - 1].trim() : ""
 
-                if (msg === "launcher") {
+                if (msg === "lock") {
+                    lockScreen.lock()
+                } else if (msg === "wallpaper") {
+                    wallpaperPickerWindow.visible = !wallpaperPickerWindow.visible
+                } else if (msg === "nixpkgs" || msg === "nixsearch") {
+                    nixPkgDrawer.toggle()
+                } else if (msg === "launcher") {
                     root.openLauncher()
                 } else if (msg === "toggle") {
                     island.isExpanded = !island.isExpanded
@@ -65,7 +122,6 @@ Scope {
                     root.triggerBrightnessOsd()
                 }
 
-                // Restart fifo listener safely
                 ipcRestartTimer.restart()
             }
         }
@@ -81,7 +137,6 @@ Scope {
         }
     }
 
-    // --- Invisible Top Spacer Window ---
     PanelWindow {
         WlrLayershell.namespace: "quickshell-top-spacer"
         WlrLayershell.layer: WlrLayershell.Top
@@ -102,7 +157,6 @@ Scope {
         mask: emptySpacerRegion
     }
 
-    // --- Main Dynamic Island Window ---
     PanelWindow {
         id: root
 
@@ -396,7 +450,6 @@ Scope {
 
             HoverHandler { id: hoverHandler }
 
-            // 1. SMALL PILL HEADER
             Item {
                 id: pillHeader
                 anchors.fill: parent
@@ -436,7 +489,6 @@ Scope {
                         visible: island.isHovered && !island.isExpanded
                     }
 
-                    // --- Animated Recording Indicator ---
                     RowLayout {
                         id: recIndicator
                         spacing: 6
@@ -505,7 +557,6 @@ Scope {
                 }
             }
 
-            // 2. EXPANDED SWIPE CARDS
             Item {
                 id: expandedContent
                 anchors.centerIn: parent
@@ -540,7 +591,6 @@ Scope {
                         }
                     }
 
-                    // PAGE 0: Control Center
                     Item {
                         id: page0
 
@@ -568,7 +618,6 @@ Scope {
                                 Layout.fillWidth: true
                                 spacing: 8
 
-                                // Wi-Fi Toggle
                                 Rectangle {
                                     Layout.fillWidth: true
                                     height: 42
@@ -607,7 +656,6 @@ Scope {
                                     Behavior on color { ColorAnimation { duration: 150 } }
                                 }
 
-                                // Bluetooth Toggle
                                 Rectangle {
                                     Layout.fillWidth: true
                                     height: 42
@@ -646,7 +694,6 @@ Scope {
                                     Behavior on color { ColorAnimation { duration: 150 } }
                                 }
 
-                                // Caffeine Toggle
                                 Rectangle {
                                     Layout.fillWidth: true
                                     height: 42
@@ -693,7 +740,6 @@ Scope {
                                 Layout.fillWidth: true
                                 spacing: 8
 
-                                // Volume Slider
                                 Rectangle {
                                     Layout.fillWidth: true
                                     height: 38
@@ -745,7 +791,6 @@ Scope {
                                     }
                                 }
 
-                                // Brightness Slider
                                 Rectangle {
                                     Layout.fillWidth: true
                                     height: 38
@@ -800,7 +845,6 @@ Scope {
                         }
                     }
 
-                    // PAGE 1: Native MPRIS Media Player
                     Item {
                         id: page1
 
@@ -863,7 +907,7 @@ Scope {
 
                                     Text {
                                         Layout.fillWidth: true
-                                        text: root.activePlayer ? (root.activePlayer.trackTitle || "Unknown Title") : "No Media Playing"
+                                        text: root.activePlayer ? (root.activePlayer.trackTitle || "No Track Playing") : "No Media Playing"
                                         color: "#ffffff"
                                         font.weight: Font.ExtraBold
                                         font.pixelSize: 13
@@ -1045,16 +1089,8 @@ Scope {
                         }
                     }
 
-                    // PAGE 2: App Launcher Container
                     LauncherPage {
                         id: page2
-                        parentSwipeView: swipeView
-                        island: island
-                    }
-
-                    // PAGE 3: Wallpaper Switcher Container
-                    WallpaperPage {
-                        id: page3
                         parentSwipeView: swipeView
                         island: island
                     }
